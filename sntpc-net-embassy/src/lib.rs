@@ -64,10 +64,10 @@ mod log {
 #[cfg(any(feature = "log", feature = "defmt"))]
 use crate::log::error;
 
-use embassy_net::{IpAddress, IpEndpoint, udp::UdpSocket};
+use embassy_net::udp::UdpSocket;
 use sntpc::{Error, NtpUdpSocket, Result};
 
-use core::net::{IpAddr, SocketAddr};
+use core::net::SocketAddr;
 
 /// A wrapper around [`embassy_net::udp::UdpSocket`] that implements [`NtpUdpSocket`].
 ///
@@ -134,49 +134,9 @@ impl<'a> From<UdpSocket<'a>> for UdpSocketWrapper<'a> {
     }
 }
 
-/// Converts a standard [`SocketAddr`] to an Embassy [`IpEndpoint`].
-///
-/// This helper function handles the conversion between standard library network
-/// types and Embassy's network types. IPv6 addresses are only supported when
-/// the `ipv6` feature is enabled.
-///
-/// # Panics
-///
-/// Panics if an IPv6 address is provided without the `ipv6` feature enabled.
-fn to_endpoint(addr: SocketAddr) -> IpEndpoint {
-    // Currently smoltcp/embassy-net still has its own address enum
-    IpEndpoint::new(
-        match addr.ip() {
-            IpAddr::V4(addr) => IpAddress::Ipv4(addr),
-            #[cfg(feature = "ipv6")]
-            IpAddr::V6(addr) => IpAddress::Ipv6(addr),
-            #[cfg(not(feature = "ipv6"))]
-            _ => unreachable!(),
-        },
-        addr.port(),
-    )
-}
-
-/// Converts an Embassy [`IpEndpoint`] to a standard [`SocketAddr`].
-///
-/// This helper function handles the conversion from Embassy's network types
-/// back to standard library network types.
-fn from_endpoint(ep: IpEndpoint) -> SocketAddr {
-    SocketAddr::new(
-        match ep.addr {
-            IpAddress::Ipv4(val) => IpAddr::V4(val),
-            #[cfg(feature = "ipv6")]
-            IpAddress::Ipv6(val) => IpAddr::V6(val),
-        },
-        ep.port,
-    )
-}
-
 impl NtpUdpSocket for UdpSocketWrapper<'_> {
-    async fn send_to(&self, buf: &[u8], addr: SocketAddr) -> Result<usize> {
-        let endpoint = to_endpoint(addr);
-
-        match self.socket.send_to(buf, endpoint).await {
+    async fn send_to(&self, buf: &[u8], endpoint: SocketAddr) -> Result<usize> {
+        match self.socket.send_to(buf, embassy_net::wire::SocketAddr::from(endpoint)).await {
             Ok(()) => Ok(buf.len()),
             #[allow(unused_variables)]
             Err(e) => {
@@ -189,7 +149,7 @@ impl NtpUdpSocket for UdpSocketWrapper<'_> {
 
     async fn recv_from(&self, buf: &mut [u8]) -> Result<(usize, SocketAddr)> {
         match self.socket.recv_from(buf).await {
-            Ok((len, ep)) => Ok((len, from_endpoint(ep.endpoint))),
+            Ok((len, ep)) => Ok((len, ep.remote_addr.into())),
             #[allow(unused_variables)]
             Err(e) => {
                 #[cfg(any(feature = "log", feature = "defmt"))]

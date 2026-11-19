@@ -1,6 +1,6 @@
 [package]
 name = "sntpc-net-embassy"
-version = "0.11.0"
+version = "0.12.0"
 description = "Embassy socket wrapper for sntpc library"
 repository = "https://github.com/vpetrigo/sntpc"
 categories = ["date-and-time", "no-std", "embedded", "asynchronous"]
@@ -12,13 +12,14 @@ authors.workspace = true
 
 [dependencies]
 sntpc = { version = "~0.11", path = "../sntpc", default-features = false }
-embassy-net = { version = ">=0.9, <0.10", default-features = false, features = ["udp", "proto-ipv4", "medium-ip"] }
+embassy-net = { version = ">=0.10, <0.11", default-features = false, features = ["udp", "ipv4", "medium-ip"], registry = "kellnr" }
 
 cfg-if = { version = "1", optional = true }
 log = { version = "~0.4", optional = true }
 defmt = { version = "~1.1", optional = true }
 
 [features]
-ipv6 = ["embassy-net/proto-ipv6"]
+default = ["ipv6"]
+ipv6 = ["embassy-net/ipv6"]
 log = ["dep:log", "dep:cfg-if"]
 defmt = ["dep:defmt", "dep:cfg-if", "sntpc/defmt", "embassy-net/defmt"]
